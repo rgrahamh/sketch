@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "shared.h"
+#include "../shared/shared.h"
 
 int trace_process(pid_t child_pid);
 

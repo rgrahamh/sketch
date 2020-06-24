@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -g
 
-CFILES=shared.c sketch.c tracer.c tracee.c
+CFILES=./shared/shared.c ./sketch/sketch.c ./tracer/tracer.c ./tracee/tracee.c
 
-sketch: $(CFILES)
-	$(CC) $(CFILES) -o sketch $(CFLAGS)
+debugger: $(CFILES)
+	$(CC) $(CFILES) -o sktch $(CFLAGS)

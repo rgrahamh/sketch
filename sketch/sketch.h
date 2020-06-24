@@ -7,8 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "tracer.h"
-#include "tracee.h"
-#include "shared.h"
+#include "../tracer/tracer.h"
+#include "../tracee/tracee.h"
+#include "../shared/shared.h"
 
 #endif

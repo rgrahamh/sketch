@@ -24,12 +24,12 @@ int trace_process(pid_t child_pid){
 
 		//Parsing the commands
 		//If you want to step the program
-		if(strcmp(arg_lst[0], "n") == 0 || strcmp(arg_lst[0], "next")){
+		if(strcmp(arg_lst[0], "n") == 0 || strcmp(arg_lst[0], "next") == 0){
 			if(ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL)){
 				printf("Error stepping to the next instruction.\n");
 				return -1;
 			}
-			printf("Stepping the program...");
+			printf("Stepping the program...\n");
 		}
 		//If you want to continue the program
 		else if(strcmp(arg_lst[0], "c") == 0 || strcmp(arg_lst[0], "continue") == 0){
@@ -37,7 +37,7 @@ int trace_process(pid_t child_pid){
 				printf("Error continuing the program.\n");
 				return -1;
 			}
-			printf("Continuing the program...");
+			printf("Continuing the program...\n");
 		}
 		else if(arg_lst[0][0] == 'p' || strncmp(arg_lst[0], "print", 5) == 0){
 			//If the print hasn't specified the type of print, don't execute the remaining code
