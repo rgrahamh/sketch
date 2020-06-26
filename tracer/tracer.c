@@ -62,17 +62,25 @@ void write_mem(pid_t child_pid, char** arg_lst){
 
 void get_regs(pid_t child_pid, char* reg_name){
 	//Get the registers
-	struct user_regs_struct* regs = (struct user_regs_struct*)malloc(sizeof(struct user_regs_struct));
-	ptrace(PTRACE_GETREGS, child_pid, NULL, regs);
+	struct user_regs_struct regs;
+	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
 
 	//Iterate through and print the registers (or the register you're looking for)
 	int num_regs = sizeof(struct user_regs_struct) / sizeof(unsigned long int);
+	#ifdef __x86_64__
+	long long int* reg_iter = (long long int*)&regs;
+	#else
+	long int* reg_iter = (long int*)&regs;
+	#endif
 	for(int i = 0; i < num_regs; i++){
 		if(reg_name == NULL || strcmp(reg_name, REGISTERS[i]) == 0){
-			printf("%s: 0x%lx\n", REGISTERS[i], ptrace(PTRACE_PEEKUSER, child_pid, regs[i], NULL));
+			#ifdef __x86_64__
+			printf("%s: 0x%llx\n", REGISTERS[i], *(reg_iter + i));
+			#else
+			printf("%s: 0x%lx\n", REGISTERS[i], *(reg_iter + i));
+			#endif
 		}
 	}
-	free(regs);
 }
 
 int trace_process(pid_t child_pid){
@@ -84,6 +92,7 @@ int trace_process(pid_t child_pid){
 
 	//Continue the program while it hasn't exited
 	while(!WIFEXITED(status)){
+		
 		//Get line of input
 		printf("-> ");
 		fgets(input, MAX_INPUT_SIZE, stdin);
@@ -113,6 +122,13 @@ int trace_process(pid_t child_pid){
 				return -1;
 			}
 			printf("Continuing the program...\n");
+		}
+		else if(strcmp(arg_lst[0], "s") == 0 || strcmp(arg_lst[0], "syscall") == 0){
+			if(ptrace(PTRACE_SYSCALL, child_pid, NULL, NULL)){
+				printf("Error continuing the program to syscall.\n");
+				return -1;
+			}
+			printf("Continuing the program to next syscall...\n");
 		}
 		//If you want to print a piece of memory
 		else if(arg_lst[0][0] == 'p' || strncmp(arg_lst[0], "print", 5) == 0){
