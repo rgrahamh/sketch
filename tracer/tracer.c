@@ -10,7 +10,7 @@ const char* REGISTERS[] = {"ebx", "ecx", "edx", "esi", "edi", "ebp", "eax", "xds
 void print_mem(pid_t child_pid, char** arg_lst){
 	//If the print hasn't specified the type of print, don't execute the remaining code
 	if(strlen(arg_lst[0]) == 1 || strlen(arg_lst[0]) == 5){
-		printf("Please put a character after your print command to denote the format.");
+		printf("Please put a character after your print command to denote the format.\n");
 		return;
 	}
 
@@ -53,10 +53,10 @@ void write_mem(pid_t child_pid, char** arg_lst){
 
 	//Update data
 	if(ptrace(PTRACE_POKEDATA, child_pid, addr, strtoul(arg_lst[2], NULL, 16))){
-		printf("Failed to place the data in tracee memory.");
+		printf("Failed to place the data in tracee memory.\n");
 	}
 	else{
-		printf("Placed the data in tracee memory.");
+		printf("Placed the data in tracee memory.\n");
 	}
 }
 
@@ -81,6 +81,38 @@ void get_regs(pid_t child_pid, char* reg_name){
 			#endif
 		}
 	}
+}
+
+void flash_regs(pid_t child_pid, char** arg_lst){
+	if(arg_lst[1] == NULL){
+		printf("Please specify the register you wish to flash!\n");
+		return;
+	}
+	else if(arg_lst[2] == NULL){
+		printf("Please specify the number you wish to flash to the register!\n");
+		return;
+	}
+
+	//Get the registers
+	struct user_regs_struct regs;
+	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
+
+	//Iterate through and print the registers (or the register you're looking for)
+	int num_regs = sizeof(struct user_regs_struct) / sizeof(unsigned long int);
+	#ifdef __x86_64__
+	long long int* reg_iter = (long long int*)&regs;
+	#else
+	long int* reg_iter = (long int*)&regs;
+	#endif
+	//Set the new register value
+	for(int i = 0; i < num_regs; i++){
+		if(arg_lst[1] == NULL || strcmp(arg_lst[1], REGISTERS[i]) == 0){
+			*(reg_iter + i) = strtoul(arg_lst[2], 0, 16);
+		}
+	}
+
+	//Update registers
+	ptrace(PTRACE_SETREGS, child_pid, NULL, &regs);
 }
 
 int trace_process(pid_t child_pid){
@@ -141,6 +173,10 @@ int trace_process(pid_t child_pid){
 		}
 		else if(strcmp(arg_lst[0], "r") == 0 || strcmp(arg_lst[0], "registers") == 0){
 			get_regs(child_pid, arg_lst[1]);
+			continue;
+		}
+		else if(strcmp(arg_lst[0], "f") == 0 || strcmp(arg_lst[0], "flash") == 0){
+			flash_regs(child_pid, arg_lst);
 			continue;
 		}
 		else{
