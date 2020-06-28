@@ -8,6 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-char** get_args(char* str, char* delims);
+char** getArgs(char* str, char* delims);
 
 #endif

@@ -7,6 +7,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-void execute_program(char* program_name, char** argv);
+void executeProgram(char* program_name, char** argv);
 
 #endif

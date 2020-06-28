@@ -9,10 +9,10 @@
 
 #include "../shared/shared.h"
 
-void print_mem(pid_t child_pid, char** arg_lst);
-void write_mem(pid_t child_pid, char** arg_lst);
-void get_regs(pid_t child_pid, char* reg_name);
+void printMem(pid_t child_pid, char** arg_lst);
+void writeMem(pid_t child_pid, char** arg_lst);
+void getRegs(pid_t child_pid, char* reg_name);
 
-int trace_process(pid_t child_pid);
+int traceProcess(pid_t child_pid);
 
 #endif

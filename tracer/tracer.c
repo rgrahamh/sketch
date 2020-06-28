@@ -7,7 +7,7 @@ const char* REGISTERS[] = {"r15", "r14", "r13", "r12", "rbp", "rbx", "r11", "r10
 const char* REGISTERS[] = {"ebx", "ecx", "edx", "esi", "edi", "ebp", "eax", "xds", "xes", "xfs", "xgs", "orig_eax", "eip", "xcs", "eflags", "esp", "xss"};
 #endif
 
-void print_mem(pid_t child_pid, char** arg_lst){
+void printMem(pid_t child_pid, char** arg_lst){
 	//If the print hasn't specified the type of print, don't execute the remaining code
 	if(strlen(arg_lst[0]) == 1 || strlen(arg_lst[0]) == 5){
 		printf("Please put a character after your print command to denote the format.\n");
@@ -37,7 +37,7 @@ void print_mem(pid_t child_pid, char** arg_lst){
 	}
 }
 
-void write_mem(pid_t child_pid, char** arg_lst){
+void writeMem(pid_t child_pid, char** arg_lst){
 	//If we have an address and data
 	if(arg_lst[2] == NULL){
 		printf("Not enough arguments! Use the format:\nw <addr> <val>\n");
@@ -60,7 +60,7 @@ void write_mem(pid_t child_pid, char** arg_lst){
 	}
 }
 
-void get_regs(pid_t child_pid, char* reg_name){
+void getRegs(pid_t child_pid, char* reg_name){
 	//Get the registers
 	struct user_regs_struct regs;
 	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
@@ -83,7 +83,7 @@ void get_regs(pid_t child_pid, char* reg_name){
 	}
 }
 
-void flash_regs(pid_t child_pid, char** arg_lst){
+void flashRegs(pid_t child_pid, char** arg_lst){
 	if(arg_lst[1] == NULL){
 		printf("Please specify the register you wish to flash!\n");
 		return;
@@ -115,7 +115,7 @@ void flash_regs(pid_t child_pid, char** arg_lst){
 	ptrace(PTRACE_SETREGS, child_pid, NULL, &regs);
 }
 
-int trace_process(pid_t child_pid){
+int traceProcess(pid_t child_pid){
 	int status = 0;
 	waitpid(child_pid, &status, 0);
 
@@ -131,7 +131,7 @@ int trace_process(pid_t child_pid){
 		if(arg_lst != NULL){
 			free(arg_lst);
 		}
-		arg_lst = get_args(input, " \n");
+		arg_lst = getArgs(input, " \n");
 		if(arg_lst == NULL){
 			printf("Improperly terminated argument!\n");
 			arg_lst = &input;
@@ -164,19 +164,19 @@ int trace_process(pid_t child_pid){
 		}
 		//If you want to print a piece of memory
 		else if(arg_lst[0][0] == 'p' || strncmp(arg_lst[0], "print", 5) == 0){
-			print_mem(child_pid, arg_lst);
+			printMem(child_pid, arg_lst);
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "w") == 0 || strcmp(arg_lst[0], "write") == 0){
-			write_mem(child_pid, arg_lst);
+			writeMem(child_pid, arg_lst);
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "r") == 0 || strcmp(arg_lst[0], "registers") == 0){
-			get_regs(child_pid, arg_lst[1]);
+			getRegs(child_pid, arg_lst[1]);
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "f") == 0 || strcmp(arg_lst[0], "flash") == 0){
-			flash_regs(child_pid, arg_lst);
+			flashRegs(child_pid, arg_lst);
 			continue;
 		}
 		else{

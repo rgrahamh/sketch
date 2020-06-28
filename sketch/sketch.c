@@ -22,7 +22,7 @@ int main(int argc, char** argv){
 		if(arg_lst != NULL){
 			free(arg_lst);
 		}
-		arg_lst = get_args(input, " \n");
+		arg_lst = getArgs(input, " \n");
 		if(arg_lst == NULL){
 			printf("Improperly terminated argument!\n");
 			arg_lst = &input;
@@ -35,11 +35,11 @@ int main(int argc, char** argv){
 			if((child_pid = fork()) == 0){
 				//Start parsing after the 'r '
 				arg_lst[0] = program_name;
-				execute_program(program_name, arg_lst);
+				executeProgram(program_name, arg_lst);
 			}
 			//Parent process
 			else{
-				printf("PROCESS RETURNED %d\n", trace_process(child_pid));
+				printf("PROCESS RETURNED %d\n", traceProcess(child_pid));
 			}
 		}
 		else{

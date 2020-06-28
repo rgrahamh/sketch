@@ -1,6 +1,6 @@
 #include "shared.h"
 
-char** get_args(char* str, char* delims){
+char** getArgs(char* str, char* delims){
 	//The new argument list
 	char** arg_lst = (char**)calloc(sizeof(char*), MAX_ARGS);
 	arg_lst[0] = str;
