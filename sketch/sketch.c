@@ -14,6 +14,15 @@ int main(int argc, char** argv){
 	char* program_name = argv[1];
 	char** arg_lst = NULL;
 
+	//Setting breakpoint stuff
+	break_num = 0;
+	break_max = 16;
+	#ifdef __x86_64__
+	breakpoints = (long long int*)calloc(break_max, sizeof(long long int*));
+	#else
+	breakpoints = (long int*)calloc(break_max, sizeof(long int*));
+	#endif
+
 	//While exit command not inputted
 	do {
 		//Get line of input
@@ -39,14 +48,34 @@ int main(int argc, char** argv){
 			}
 			//Parent process
 			else{
-				printf("PROCESS RETURNED %d\n", traceProcess(child_pid));
+				traceProcess(child_pid);
 			}
 		}
-		else{
+		//Doing an objdump
+		else if(strcmp(arg_lst[0], "b") == 0 || strcmp(arg_lst[0], "breakpoint") == 0){
+			setBreakpoint(arg_lst+1);
+		}
+		else if(strcmp(arg_lst[0], "d") == 0 || strcmp(arg_lst[0], "delete") == 0){
+			deleteBreakpoint(arg_lst+1);
+		}
+		else if(strcmp(arg_lst[0], "o") == 0 || strcmp(arg_lst[0], "objdump") == 0){
+			char* cmd = (char*)malloc(strlen(program_name) + 19);
+			sprintf(cmd, "objdump -d %s | less", program_name);
+			system(cmd);
+			free(cmd);
+		}
+		//If we don't recognize the command
+		else if(strcmp(arg_lst[0], "q") != 0 && strcmp(arg_lst[0], "quit") != 0){
 			printf("Unrecognized command '%s'\n", arg_lst[0]);
 		}
 	} while(strcmp(arg_lst[0], "q") != 0);
 
+	//Final frees
+	if(arg_lst != NULL){
+		free(arg_lst);
+	}
 	free(input);
+	free(breakpoints);
+
 	return 0;
 }

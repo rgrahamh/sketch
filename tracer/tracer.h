@@ -11,7 +11,7 @@
 
 void printMem(pid_t child_pid, char** arg_lst);
 void writeMem(pid_t child_pid, char** arg_lst);
-void getRegs(pid_t child_pid, char* reg_name);
+void printRegs(pid_t child_pid, char* reg_name);
 
 int traceProcess(pid_t child_pid);
 

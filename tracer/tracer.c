@@ -16,7 +16,7 @@ void printMem(pid_t child_pid, char** arg_lst){
 
 	//If we don't have an address
 	if(arg_lst[1] == NULL){
-		printf("Not enough arguments! Use the format:\np<s/c/d/x> <addr>\n");
+		printf("Not enough arguments! Use the format:\np<c/d/x> <addr>\n");
 		return;
 	}
 
@@ -60,7 +60,7 @@ void writeMem(pid_t child_pid, char** arg_lst){
 	}
 }
 
-void getRegs(pid_t child_pid, char* reg_name){
+void printRegs(pid_t child_pid, char* reg_name){
 	//Get the registers
 	struct user_regs_struct regs;
 	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
@@ -97,14 +97,13 @@ void flashRegs(pid_t child_pid, char** arg_lst){
 	struct user_regs_struct regs;
 	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
 
-	//Iterate through and print the registers (or the register you're looking for)
+	//Set the new register value
 	int num_regs = sizeof(struct user_regs_struct) / sizeof(unsigned long int);
 	#ifdef __x86_64__
 	long long int* reg_iter = (long long int*)&regs;
 	#else
 	long int* reg_iter = (long int*)&regs;
 	#endif
-	//Set the new register value
 	for(int i = 0; i < num_regs; i++){
 		if(arg_lst[1] == NULL || strcmp(arg_lst[1], REGISTERS[i]) == 0){
 			*(reg_iter + i) = strtoul(arg_lst[2], 0, 16);
@@ -113,6 +112,43 @@ void flashRegs(pid_t child_pid, char** arg_lst){
 
 	//Update registers
 	ptrace(PTRACE_SETREGS, child_pid, NULL, &regs);
+}
+
+int continueProgram(pid_t child_pid){
+	struct user_regs_struct* regs = (struct user_regs_struct*)malloc(sizeof(struct user_regs_struct));
+	char break_hit = 0;
+	int status;
+	do{
+		//Step once
+		if(ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL)){
+			free(regs);
+			return -1;
+		}
+		waitpid(child_pid, &status, 0);
+		
+		//Get the rip register
+		ptrace(PTRACE_GETREGS, child_pid, NULL, regs);
+		#ifdef __x86_64__
+		long long int instr = regs->rip;
+		#else
+		long int instr = regs->eip;
+		#endif
+
+		//Go through each breakpoint to see if we get a match
+		for(int i = 0; i < break_num; i++){
+			if(breakpoints[i] != 0x0 && breakpoints[i] == instr){
+				#ifdef __x86_64__
+				printf("Breakpoint %d hit: %llu\n", i, breakpoints[i]);
+				#else
+				printf("Breakpoint %d hit: %lu\n", i, breakpoints[i]);
+				#endif
+				free(regs);
+				return 0;
+			}
+		}
+	} while(break_hit == 0);
+	free(regs);
+	return 0;
 }
 
 int traceProcess(pid_t child_pid){
@@ -139,7 +175,7 @@ int traceProcess(pid_t child_pid){
 		}
 
 		//Parsing the commands
-		//If you want to step the program
+		//If you want to step to the next instruction
 		if(strcmp(arg_lst[0], "n") == 0 || strcmp(arg_lst[0], "next") == 0){
 			if(ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL)){
 				printf("Error stepping to the next instruction.\n");
@@ -147,20 +183,21 @@ int traceProcess(pid_t child_pid){
 			}
 			printf("Stepping the program...\n");
 		}
-		//If you want to continue the program
-		else if(strcmp(arg_lst[0], "c") == 0 || strcmp(arg_lst[0], "continue") == 0){
-			if(ptrace(PTRACE_CONT, child_pid, NULL, NULL)){
-				printf("Error continuing the program.\n");
-				return -1;
-			}
-			printf("Continuing the program...\n");
-		}
+		//If you want to continue to the next syscall
 		else if(strcmp(arg_lst[0], "s") == 0 || strcmp(arg_lst[0], "syscall") == 0){
 			if(ptrace(PTRACE_SYSCALL, child_pid, NULL, NULL)){
 				printf("Error continuing the program to syscall.\n");
 				return -1;
 			}
 			printf("Continuing the program to next syscall...\n");
+		}
+		//If you want to continue the program
+		else if(strcmp(arg_lst[0], "c") == 0 || strcmp(arg_lst[0], "continue") == 0){
+			printf("Continuing the program...\n");
+			if(continueProgram(child_pid)){
+				return 0;
+			}
+			continue;
 		}
 		//If you want to print a piece of memory
 		else if(arg_lst[0][0] == 'p' || strncmp(arg_lst[0], "print", 5) == 0){
@@ -172,12 +209,25 @@ int traceProcess(pid_t child_pid){
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "r") == 0 || strcmp(arg_lst[0], "registers") == 0){
-			getRegs(child_pid, arg_lst[1]);
+			printRegs(child_pid, arg_lst[1]);
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "f") == 0 || strcmp(arg_lst[0], "flash") == 0){
 			flashRegs(child_pid, arg_lst);
 			continue;
+		}
+		else if(strcmp(arg_lst[0], "b") == 0 || strcmp(arg_lst[0], "breakpoint") == 0){
+			setBreakpoint(arg_lst);
+			continue;
+		}
+		else if(strcmp(arg_lst[0], "d") == 0 || strcmp(arg_lst[0], "delete") == 0){
+			deleteBreakpoint(arg_lst);
+			continue;
+		}
+		else if(strcmp(arg_lst[0], "q") == 0 || strcmp(arg_lst[0], "quit") == 0){
+			free(input);
+			free(arg_lst);
+			return 0;
 		}
 		else{
 			printf("Unrecognized command!\n");
@@ -185,5 +235,6 @@ int traceProcess(pid_t child_pid){
 		}
 		waitpid(child_pid, &status, 0);
 	}
+	free(input);
 	return 0;
 }

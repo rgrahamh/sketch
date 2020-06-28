@@ -63,3 +63,45 @@ char** getArgs(char* str, char* delims){
 
 	return arg_lst;
 }
+
+void setBreakpoint(char** break_lst){
+	for(int i = 0; i < MAX_ARGS - 1 && break_lst[i] != NULL; i++){
+		//If the array isn't big enough for another breakpoint
+		if(break_num + 1 > break_max){
+			break_max *= 2;
+			#ifdef __x86_64__
+			breakpoints = realloc(breakpoints, sizeof(long long int) * break_max);
+			memset(breakpoints + (break_max / 2), 0, sizeof(long long int) * (break_max / 2));
+			#else
+			breakpoints = realloc(sizeof(long int) * break_max);
+			memset(breakpoints + (break_max / 2), 0, sizeof(long int) * (break_max / 2));
+			#endif
+		}
+		//Find a free breakpoint slot
+		for(int j = 0; i < break_max; j++){
+			if(breakpoints[j] == 0x0){
+				breakpoints[j] = strtoul(break_lst[i], 0, 16);
+				printf("Added breakpoint %d: 0x%llx\n", j, breakpoints[j]);
+				break;
+			}
+		}
+		break_num++;
+	}
+}
+
+void deleteBreakpoint(char** break_lst){
+	//For each passed in breakpoint
+	for(int i = 0; i < MAX_ARGS - 1; i++){
+		unsigned long long addr = strtoul(break_lst[i], 0, 16);
+		//Remove the breakpoint
+		for(int j = 0; j < break_max; j++){
+			if(addr == breakpoints[j]){
+				breakpoints[j] = 0x0;
+				break_num--;
+				printf("Removed breakpoint %d: 0x%llx\n", j, addr);
+				break;
+			}
+		}
+		printf("Breakpoint at %s not found!\n", break_lst[i]);
+	}
+}
