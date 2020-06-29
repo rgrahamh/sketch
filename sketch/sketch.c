@@ -39,7 +39,7 @@ int main(int argc, char** argv){
 		}
 
 		//Running the program
-		if(strcmp(arg_lst[0], "r") == 0){
+		if(strcmp(arg_lst[0], "r") == 0 || strcmp(arg_lst[0], "run") == 0){
 			//Child process
 			if((child_pid = fork()) == 0){
 				//Start parsing after the 'r '
@@ -51,13 +51,13 @@ int main(int argc, char** argv){
 				traceProcess(child_pid);
 			}
 		}
-		//Doing an objdump
 		else if(strcmp(arg_lst[0], "b") == 0 || strcmp(arg_lst[0], "breakpoint") == 0){
 			setBreakpoint(arg_lst+1);
 		}
 		else if(strcmp(arg_lst[0], "d") == 0 || strcmp(arg_lst[0], "delete") == 0){
 			deleteBreakpoint(arg_lst+1);
 		}
+		//Doing an objdump
 		else if(strcmp(arg_lst[0], "o") == 0 || strcmp(arg_lst[0], "objdump") == 0){
 			char* cmd = (char*)malloc(strlen(program_name) + 19);
 			sprintf(cmd, "objdump -d %s | less", program_name);

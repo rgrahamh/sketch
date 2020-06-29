@@ -129,18 +129,18 @@ int continueProgram(pid_t child_pid){
 		//Get the rip register
 		ptrace(PTRACE_GETREGS, child_pid, NULL, regs);
 		#ifdef __x86_64__
-		long long int instr = regs->rip;
+		long long int instr = regs->rip - (long long int)memory_offset;
 		#else
-		long int instr = regs->eip;
+		long int instr = regs->eip - (long int)memory_offset;
 		#endif
 
 		//Go through each breakpoint to see if we get a match
 		for(int i = 0; i < break_num; i++){
 			if(breakpoints[i] != 0x0 && breakpoints[i] == instr){
 				#ifdef __x86_64__
-				printf("Breakpoint %d hit: %llu\n", i, breakpoints[i]);
+				printf("Breakpoint %d hit: 0x%llx\n", i, breakpoints[i]);
 				#else
-				printf("Breakpoint %d hit: %lu\n", i, breakpoints[i]);
+				printf("Breakpoint %d hit: 0x%lx\n", i, breakpoints[i]);
 				#endif
 				free(regs);
 				return 0;
@@ -154,6 +154,12 @@ int continueProgram(pid_t child_pid){
 int traceProcess(pid_t child_pid){
 	int status = 0;
 	waitpid(child_pid, &status, 0);
+
+	//Get the registers
+	struct user_regs_struct regs;
+	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
+
+	memory_offset = regs.rip;
 
 	char* input = (char*)calloc(MAX_INPUT_SIZE, sizeof(char));
 	char** arg_lst = NULL;
@@ -217,16 +223,17 @@ int traceProcess(pid_t child_pid){
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "b") == 0 || strcmp(arg_lst[0], "breakpoint") == 0){
-			setBreakpoint(arg_lst);
+			setBreakpoint(arg_lst+1);
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "d") == 0 || strcmp(arg_lst[0], "delete") == 0){
-			deleteBreakpoint(arg_lst);
+			deleteBreakpoint(arg_lst+1);
 			continue;
 		}
 		else if(strcmp(arg_lst[0], "q") == 0 || strcmp(arg_lst[0], "quit") == 0){
 			free(input);
 			free(arg_lst);
+			kill(child_pid, SIGKILL);
 			return 0;
 		}
 		else{

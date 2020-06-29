@@ -92,16 +92,18 @@ void setBreakpoint(char** break_lst){
 void deleteBreakpoint(char** break_lst){
 	//For each passed in breakpoint
 	for(int i = 0; i < MAX_ARGS - 1; i++){
-		unsigned long long addr = strtoul(break_lst[i], 0, 16);
-		//Remove the breakpoint
-		for(int j = 0; j < break_max; j++){
-			if(addr == breakpoints[j]){
-				breakpoints[j] = 0x0;
-				break_num--;
-				printf("Removed breakpoint %d: 0x%llx\n", j, addr);
-				break;
+		if(break_lst[i] != NULL){
+			unsigned long long addr = strtoul(break_lst[i], 0, 16);
+			//Remove the breakpoint
+			for(int j = 0; j < break_max; j++){
+				if(addr == breakpoints[j]){
+					breakpoints[j] = 0x0;
+					break_num--;
+					printf("Removed breakpoint %d: 0x%llx\n", j, addr);
+					return;
+				}
 			}
+			printf("Breakpoint at %s not found!\n", break_lst[i]);
 		}
-		printf("Breakpoint at %s not found!\n", break_lst[i]);
 	}
 }
