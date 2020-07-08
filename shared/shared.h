@@ -11,11 +11,19 @@
 unsigned long long int instr_offset;
 unsigned int break_num;
 unsigned int break_max;
+
 #ifdef __x86_64__
-long long int* breakpoints;
+struct breakpoint{
+	long long int addr;
+	char last_instr;
+};
 #else
-long int* breakpoints;
+struct breakpoint{
+	long int addr;
+	char last_instr;
+};
 #endif
+struct breakpoint** breakpoints;
 
 char** getArgs(char* str, char* delims);
 

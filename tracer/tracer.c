@@ -7,6 +7,34 @@ const char* REGISTERS[] = {"r15", "r14", "r13", "r12", "rbp", "rbx", "r11", "r10
 const char* REGISTERS[] = {"ebx", "ecx", "edx", "esi", "edi", "ebp", "eax", "xds", "xes", "xfs", "xgs", "orig_eax", "eip", "xcs", "eflags", "esp", "xss"};
 #endif
 
+
+void initBreakpoints(pid_t child_pid){
+	for(int i = 0; i < break_max; i++){
+		if(breakpoints[i] != NULL){
+			injectInstruction(child_pid, breakpoints[i]);
+		}
+	}
+}
+
+void injectBreakpoint(pid_t child_pid, struct breakpoint* brk){
+	if(brk == NULL){
+		return;
+	}
+	unsigned long long instr = ptrace(PTRACE_PEEKDATA, child_pid, instr_offset + brk->addr, NULL);
+	brk->last_instr = instr & 0xff;
+	unsigned long long new_instr = (instr & (~(0xff))) + 0xcc;
+	ptrace(PTRACE_POKEDATA, child_pid, instr_offset + brk->addr, new_instr);
+}
+
+void injectInstruction(pid_t child_pid, struct breakpoint* brk){
+	if(brk == NULL){
+		return;
+	}
+	unsigned long long instr = ptrace(PTRACE_PEEKDATA, child_pid, instr_offset + brk->addr, NULL);
+	unsigned long long new_instr = (instr & (~(0xff))) + (brk->last_instr & 0xff);
+	ptrace(PTRACE_POKEDATA, child_pid, instr_offset + brk->addr, new_instr);
+}
+
 void printMem(pid_t child_pid, char** arg_lst){
 	//If the print hasn't specified the type of print, don't execute the remaining code
 	if(strlen(arg_lst[0]) == 1 || strlen(arg_lst[0]) == 5){
@@ -46,10 +74,10 @@ void writeMem(pid_t child_pid, char** arg_lst){
 
 	//If the address is word aligned
 	long addr = strtoul(arg_lst[1], NULL, 16);
-	if(addr % 4 != 0){
+	/*if(addr % 4 != 0){
 		printf("Address isn't aligned; cannot write to that location.\n");
 		return;
-	}
+	}*/
 
 	//Update data
 	if(ptrace(PTRACE_POKEDATA, child_pid, addr, strtoul(arg_lst[2], NULL, 16))){
@@ -114,41 +142,49 @@ void flashRegs(pid_t child_pid, char** arg_lst){
 	ptrace(PTRACE_SETREGS, child_pid, NULL, &regs);
 }
 
-int continueProgram(pid_t child_pid){
-	struct user_regs_struct* regs = (struct user_regs_struct*)malloc(sizeof(struct user_regs_struct));
+struct breakpoint* continueProgram(pid_t child_pid, struct breakpoint* last_break){
+	injectBreakpoint(child_pid, last_break);
+
 	char break_hit = 0;
 	int status;
-	do{
-		//Step once
-		if(ptrace(PTRACE_SINGLESTEP, child_pid, NULL, NULL)){
-			free(regs);
-			return -1;
-		}
-		waitpid(child_pid, &status, 0);
-		
-		//Get the rip register
-		ptrace(PTRACE_GETREGS, child_pid, NULL, regs);
-		#ifdef __x86_64__
-		long long int instr = regs->rip - (long long int)memory_offset;
-		#else
-		long int instr = regs->eip - (long int)memory_offset;
-		#endif
+	if(ptrace(PTRACE_CONT, child_pid, NULL, NULL)){
+		return NULL;
+	}
+	waitpid(child_pid, &status, 0);
 
+	struct user_regs_struct regs;
+	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
+	#ifdef __x86_64__
+	long long int addr = regs.rip - (long long int)instr_offset;
+	#else
+	long int addr = regs.eip - (long int)instr_offset;
+	#endif
+
+	if(!WIFEXITED(status)){
 		//Go through each breakpoint to see if we get a match
 		for(int i = 0; i < break_num; i++){
-			if(breakpoints[i] != 0x0 && breakpoints[i] == instr){
+			if(breakpoints[i] != 0x0 && breakpoints[i]->addr+1 == addr){
 				#ifdef __x86_64__
-				printf("Breakpoint %d hit: 0x%llx\n", i, breakpoints[i]);
+				printf("Breakpoint %d hit: 0x%llx\n", i, breakpoints[i]->addr);
 				#else
-				printf("Breakpoint %d hit: 0x%lx\n", i, breakpoints[i]);
+				printf("Breakpoint %d hit: 0x%lx\n", i, breakpoints[i]->addr);
 				#endif
-				free(regs);
-				return 0;
+
+				//Put the instruction back
+				regs.rip -= 1;
+				ptrace(PTRACE_SETREGS, child_pid, NULL, &regs);
+				injectInstruction(child_pid, breakpoints[i]);
+
+				//Return the breakpoint we're supposed to put back on next instruction
+				return breakpoints[i];
+			}
+			else{
+				printf("Unidentified breakpoint!\n");
+				return NULL;
 			}
 		}
-	} while(break_hit == 0);
-	free(regs);
-	return 0;
+	}
+	return NULL;
 }
 
 int traceProcess(pid_t child_pid){
@@ -159,10 +195,14 @@ int traceProcess(pid_t child_pid){
 	struct user_regs_struct regs;
 	ptrace(PTRACE_GETREGS, child_pid, NULL, &regs);
 
-	memory_offset = regs.rip;
+	instr_offset = regs.rip;
 
 	char* input = (char*)calloc(MAX_INPUT_SIZE, sizeof(char));
 	char** arg_lst = NULL;
+
+	struct breakpoint* curr_break = NULL;
+
+	initBreakpoints(child_pid);
 
 	//Continue the program while it hasn't exited
 	while(!WIFEXITED(status)){
@@ -200,9 +240,7 @@ int traceProcess(pid_t child_pid){
 		//If you want to continue the program
 		else if(strcmp(arg_lst[0], "c") == 0 || strcmp(arg_lst[0], "continue") == 0){
 			printf("Continuing the program...\n");
-			if(continueProgram(child_pid)){
-				return 0;
-			}
+			curr_break = continueProgram(child_pid, curr_break);
 			continue;
 		}
 		//If you want to print a piece of memory

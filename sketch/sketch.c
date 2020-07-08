@@ -18,9 +18,7 @@ int main(int argc, char** argv){
 	break_num = 0;
 	break_max = 16;
 	#ifdef __x86_64__
-	breakpoints = (long long int*)calloc(break_max, sizeof(long long int*));
-	#else
-	breakpoints = (long int*)calloc(break_max, sizeof(long int*));
+	breakpoints = (struct breakpoint**)calloc(break_max, sizeof(struct breakpoint*));
 	#endif
 
 	//While exit command not inputted
